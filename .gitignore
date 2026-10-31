@@ -1,0 +1,25 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# Runtime state, logs, and caches
+state/
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Analysis folder
+Analiz/

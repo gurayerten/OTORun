@@ -1,0 +1,206 @@
+{
+  "BULLAUSDT": {
+    "seen_count": 6,
+    "first_seen_str": "18:54 UTC",
+    "first_price": 0.06673,
+    "first_rate": -0.01847501,
+    "last_price": 0.0672,
+    "prev_price": 0.06557,
+    "last_rate": -0.01041599,
+    "last_cvd": 12066539.737314845,
+    "price_change_radar_pct": 0.7043308856586216,
+    "price_change_prev_scan_pct": 2.485892938843972,
+    "price_history": [
+      0.0633,
+      0.06557,
+      0.0672
+    ],
+    "funding_history": [
+      -0.01847501,
+      -0.01446853,
+      -0.01339621,
+      -0.01151855,
+      -0.01041599
+    ],
+    "oi_history": [
+      125176396.0,
+      125282535.0,
+      124848371.0
+    ],
+    "cvd_history": [
+      9916973.093493668,
+      10927005.306260953,
+      12066539.737314845
+    ],
+    "last_updated_ts": 1793129824.797396
+  },
+  "DOODUSDT": {
+    "seen_count": 6,
+    "first_seen_str": "00:28 UTC",
+    "first_price": 0.00207512,
+    "first_rate": -0.01064343,
+    "last_price": 0.00204957,
+    "prev_price": 0.00202334,
+    "last_rate": -0.01371546,
+    "last_cvd": -8674384.108944355,
+    "price_change_radar_pct": -1.2312540961486589,
+    "price_change_prev_scan_pct": 1.2963713463876518,
+    "price_history": [
+      0.002247,
+      0.002075,
+      0.00212345,
+      0.00202334,
+      0.00204957
+    ],
+    "funding_history": [
+      -0.01678113,
+      -0.01693545,
+      -0.0152798,
+      -0.01344991,
+      -0.01371546
+    ],
+    "oi_history": [
+      3270122925.0,
+      3253371315.0,
+      3383683508.0,
+      3282955679.0,
+      3240514993.0
+    ],
+    "cvd_history": [
+      7113527.3660855265,
+      1122954.7745274713,
+      2167589.0774785075,
+      -7862010.312107223,
+      -8674384.108944355
+    ],
+    "last_updated_ts": 1793166552.049705
+  },
+  "UNITREEUSDT": {
+    "seen_count": 3,
+    "first_seen_str": "03:43 UTC",
+    "first_price": 104.15,
+    "first_rate": -0.01438612,
+    "last_price": 100.9,
+    "prev_price": 102.99355416,
+    "last_rate": -0.0148695,
+    "last_cvd": 20277781.226256803,
+    "price_change_radar_pct": -3.1204992798847817,
+    "price_change_prev_scan_pct": -2.032704062962688,
+    "price_history": [
+      104.15,
+      102.99355416,
+      100.9
+    ],
+    "funding_history": [
+      -0.01438612,
+      -0.01244001,
+      -0.0148695
+    ],
+    "oi_history": [
+      225846.83,
+      216266.0,
+      210837.72
+    ],
+    "cvd_history": [
+      34463850.078640185,
+      36392131.30212342,
+      20277781.226256803
+    ],
+    "last_updated_ts": 1793166551.223075
+  },
+  "SOPHUSDT": {
+    "seen_count": 3,
+    "first_seen_str": "19:20 UTC",
+    "first_price": 0.00212709,
+    "first_rate": -0.01493171,
+    "last_price": 0.00204,
+    "prev_price": 0.00216006,
+    "last_rate": -0.01222768,
+    "last_cvd": -12202929.883147642,
+    "price_change_radar_pct": -4.094326051083863,
+    "price_change_prev_scan_pct": -5.558178939473901,
+    "price_history": [
+      0.00212709,
+      0.00216006,
+      0.00204
+    ],
+    "funding_history": [
+      -0.01493171,
+      -0.01824904,
+      -0.01222768
+    ],
+    "oi_history": [
+      2121611006.0,
+      2217111168.0,
+      2357873015.0
+    ],
+    "cvd_history": [
+      7096941.266505892,
+      1024518.272616623,
+      -12202929.883147642
+    ],
+    "last_updated_ts": 1793395335.454072
+  },
+  "BLURUSDT": {
+    "seen_count": 3,
+    "first_seen_str": "19:20 UTC",
+    "first_price": 0.00919331,
+    "first_rate": -0.01182375,
+    "last_price": 0.00887527,
+    "prev_price": 0.009208,
+    "last_rate": -0.01248827,
+    "last_cvd": 4576368.465450262,
+    "price_change_radar_pct": -3.4594721596465297,
+    "price_change_prev_scan_pct": -3.6134882710686345,
+    "price_history": [
+      0.00919331,
+      0.009208,
+      0.00887527
+    ],
+    "funding_history": [
+      -0.01182375,
+      -0.01531816,
+      -0.01248827
+    ],
+    "oi_history": [
+      576767992.0,
+      575344514.0,
+      554235354.0
+    ],
+    "cvd_history": [
+      5101920.8237060895,
+      6572643.379974846,
+      4576368.465450262
+    ],
+    "last_updated_ts": 1793395334.625136
+  },
+  "HOTUSDT": {
+    "seen_count": 2,
+    "first_seen_str": "21:22 UTC",
+    "first_price": 0.0004003,
+    "first_rate": -0.01075228,
+    "last_price": 0.00038414,
+    "prev_price": 0.0004003,
+    "last_rate": -0.01660916,
+    "last_cvd": 3850144.8265911606,
+    "price_change_radar_pct": -4.036972270796911,
+    "price_change_prev_scan_pct": -4.036972270796911,
+    "price_history": [
+      0.0004003,
+      0.00038414
+    ],
+    "funding_history": [
+      -0.01075228,
+      -0.01660916
+    ],
+    "oi_history": [
+      4859802203.0,
+      4924845270.0
+    ],
+    "cvd_history": [
+      3995365.808999957,
+      3850144.8265911606
+    ],
+    "last_updated_ts": 1793399907.848877
+  }
+}
