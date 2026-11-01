@@ -5,19 +5,31 @@ from strategy import SweepEngine, atr
 from risk import build_trade_plan
 
 
-def run_backtest(df, symbol):
-    """Sweep sinyallerini ileri barlarda, canlı pozisyon kurallarını izleyerek simüle eder.
+def run_backtest(df, symbol, engine="sweep"):
+    """Tek bir sinyal motorunu ileri barlarda canlı pozisyon kurallarıyla simüle eder.
 
     Sinyal barının kapanışında karar verilir; varsayılan dolum sonraki barın
     açılışında yapılır. Böylece sinyal barının kapanışını önceden bilme varsayımı
     kaldırılır.
     """
-    engine = SweepEngine()
+    engine_name = str(engine).strip().lower()
+    if engine_name == "sweep":
+        signal_engine = SweepEngine()
+    elif engine_name == "impulse":
+        from impulse_engine import ImpulseEngine
+        signal_engine = ImpulseEngine()
+    else:
+        raise ValueError("engine 'sweep' veya 'impulse' olmalı")
+
     atr_v = atr(df, SETTINGS.ATR_LEN).values
     close, high, low = df["close"].values, df["high"].values, df["low"].values
     open_ = df["open"].values
     setups_by_bar = {}
-    for setup in engine.iter_signals(df):
+    disabled_types = (SETTINGS.DISABLED_SETUP_TYPES if engine_name == "sweep"
+                      else getattr(SETTINGS, "DISABLED_IMPULSE_SETUP_TYPES", ()))
+    for setup in signal_engine.iter_signals(df):
+        if setup.setup_type in disabled_types:
+            continue
         setups_by_bar.setdefault(setup.bar_index, []).append(setup)
     trades = []
     position = None
@@ -41,6 +53,19 @@ def run_backtest(df, symbol):
                 "be": False, "trailing_active": False, "extreme_price": entry_exec,
                 "opened_i": i,
                 "risk": abs(plan.entry - plan.sl),
+                "signal_bar_index": setup.bar_index,
+                "setup_type": getattr(setup, "setup_type", ""),
+                "score": float(getattr(setup, "score", 0.0)),
+                "grade": getattr(setup, "grade", ""),
+                "market_regime": getattr(setup, "market_regime", ""),
+                "signal_bar_time": (str(df["open_time"].iloc[setup.bar_index])
+                                    if "open_time" in df.columns else None),
+                "entry_bar_time": (str(df["open_time"].iloc[i])
+                                   if "open_time" in df.columns else None),
+                "initial_sl": plan.sl,
+                "initial_tp1": plan.tp1,
+                "initial_tp2": plan.tp2,
+                "initial_tp3": plan.tp3,
             }
             pending_setup = None
             # Pozisyon açılış barının high/low aralığı da simüle edilir.
@@ -51,8 +76,12 @@ def run_backtest(df, symbol):
                 pending_setup = setups_by_bar[i][-1]
 
     if position:
-        trades.append(_finalize_trade(position, close[-1], symbol, "EOD"))
+        trade = _finalize_trade(position, close[-1], symbol, "EOD")
+        trade["bars_held"] = int(len(df) - 1 - position["opened_i"])
+        trades.append(trade)
 
+    for trade in trades:
+        trade["engine"] = engine_name
     return trades, _metrics(trades)
 
 
@@ -111,7 +140,9 @@ def _check_bar(position, h, l, c, bars_held, trades, symbol):
             reason = "TIME"
 
     if exit_price is not None:
-        trades.append(_finalize_trade(position, exit_price, symbol, reason))
+        trade = _finalize_trade(position, exit_price, symbol, reason)
+        trade["bars_held"] = int(bars_held)
+        trades.append(trade)
         return None
     return position
 
@@ -132,6 +163,18 @@ def _finalize_trade(position, exit_price, symbol, reason="SL"):
         outcome = "LOSS"
     return {
         "symbol": symbol, "direction": d, "entry": plan.entry, "exit": exit_price,
+        "signal_bar_index": position.get("signal_bar_index"),
+        "signal_bar_time": position.get("signal_bar_time"),
+        "entry_bar_time": position.get("entry_bar_time"),
+        "setup_type": position.get("setup_type", ""),
+        "score": position.get("score"),
+        "grade": position.get("grade", ""),
+        "market_regime": position.get("market_regime", ""),
+        "direction_label": "LONG" if d == 1 else "SHORT",
+        "initial_sl": position.get("initial_sl"),
+        "tp1": position.get("initial_tp1"),
+        "tp2": position.get("initial_tp2"),
+        "tp3": position.get("initial_tp3"),
         "net_pnl_pct": net / plan.entry * 100,
         "risk_distance": risk,
         "r_multiple": round(r_multiple, 4),

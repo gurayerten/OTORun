@@ -60,8 +60,13 @@ class Settings:
     MINOR_PIVOT_LENGTH: int = 8
     CONFIRM_WINDOW_BARS: int = 13
 
-    # --- ImpulseEngine (Breakout + Volume Spike + BoS Retest) ---
-    USE_IMPULSE_ENGINE: bool = True  # 333 işlem analizinde -138R zarar → devre dışı
+    # --- ImpulseEngine (Breakout + Volume Spike + BoS Breakout) ---
+    # Geçmiş analizde 333 işlemde -138R üretmişti. Yeni sonuçlar ayrı backtestte
+    # pozitif beklenti göstermeden canlı sinyallere dahil edilmemeli.
+    USE_IMPULSE_ENGINE: bool = False
+    # Sweep setup kapıları ImpulseEngine'e otomatik uygulanmaz; Impulse için
+    # ayrıca kapatılması gereken setup türleri burada belirtilir.
+    DISABLED_IMPULSE_SETUP_TYPES: tuple = ()
     MIN_IMPULSE_SCORE: float = 80.0            # Minimum sinyal skoru (SweepEngine'den biraz yüksek)
     IMPULSE_VOL_SPIKE_MULT: float = 3.0        # Volume spike eşiği (MA'nın kaç katı)
     IMPULSE_VOL_SPIKE_BONUS: float = 15.0      # Volume spike skor bonusu
@@ -570,7 +575,7 @@ class Settings:
     CONFLUENCE_STRUCTURE_CAP: float = 15.0
 
     # --- Kapı 6: Setup tip kapıları ---
-    # BoS Retest: 9 işlem 0W/7L = -7R (en kötü setup) → tamamen kapalı.
+    # SweepEngine BoS Retest: önceki analizde zayıf sonuç → Sweep için kapalı.
     DISABLED_SETUP_TYPES: tuple = ("BoS Retest",)
     # Weak Trend Drift: yalnızca ADX >= 18'de yaşar (kazanan SUI 18.6;
     # kaybedenlerin çoğu ADX 10-16 bandında: NMR 10.5, CLO 15.6, RE 16.0...).

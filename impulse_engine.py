@@ -4,7 +4,7 @@ ImpulseEngine — Sweep gerektirmeyen güçlü fiyat hareketlerini yakalar.
 3 alt strateji:
   1. Compression Breakout: Sıkışma sonrası hacimli kırılım
   2. Volume Spike Impulse: Devasa hacim patlaması + güçlü fiyat hareketi
-  3. BoS Retest: Yapısal kırılım sonrası geri çekilme ve tutunma
+  3. BoS Breakout: Yapısal seviyenin kapanışla kırılması
 
 SweepEngine ile paralel çalışır, aynı SweepSetup dataclass'ını üretir.
 Downstream (orderbook, risk, telegram) kodunda sıfır değişiklik.
@@ -283,7 +283,8 @@ class ImpulseEngine:
 
                 if has_bos and (has_ob_fvg or ema_aligned) and vol_ratio >= 1.5:
                     triggered = True
-                    setup_type = "BoS Retest"
+                    # Bu koşul kırılım mumunu yakalar; retest doğrulaması yapmaz.
+                    setup_type = "BoS Breakout"
                     vol_component = min(vol_ratio / 4.0, 1.0)
                     base_score = vol_component * 40.0
                     base_score += SETTINGS.IMPULSE_BOS_BONUS
@@ -326,8 +327,8 @@ class ImpulseEngine:
                 elif d == -1 and eg < 0:
                     base_score += SETTINGS.IMPULSE_ENGULFING_BONUS if eg == -2 else SETTINGS.ENGULFING_BASIC_BONUS
 
-            # BoS onayı (sadece Compression Breakout ve Volume Spike için ek)
-            if setup_type != "BoS Retest" and getattr(SETTINGS, "USE_BOS", False):
+            # BoS onayı yalnızca BOS tetikleyicisi olmayan setup'lara eklenir.
+            if setup_type != "BoS Breakout" and getattr(SETTINGS, "USE_BOS", False):
                 if (d == 1 and bool(bull_bos[i])) or (d == -1 and bool(bear_bos[i])):
                     base_score += SETTINGS.IMPULSE_BOS_BONUS
 

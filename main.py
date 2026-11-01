@@ -162,8 +162,9 @@ def process_symbol(symbol, stats: ScanStats, mark_price_map=None):
     if sweep_setup and sweep_setup.setup_type in SETTINGS.DISABLED_SETUP_TYPES:
         log.debug(f"{symbol} SweepEngine setup_type='{sweep_setup.setup_type}' DISABLED_SETUP_TYPES ile engellendi")
         sweep_setup = None
-    if impulse_setup and impulse_setup.setup_type in SETTINGS.DISABLED_SETUP_TYPES:
-        log.debug(f"{symbol} ImpulseEngine setup_type='{impulse_setup.setup_type}' DISABLED_SETUP_TYPES ile engellendi")
+    if impulse_setup and impulse_setup.setup_type in getattr(SETTINGS, "DISABLED_IMPULSE_SETUP_TYPES", ()):
+        log.debug(f"{symbol} ImpulseEngine setup_type='{impulse_setup.setup_type}' "
+                  "DISABLED_IMPULSE_SETUP_TYPES ile engellendi")
         impulse_setup = None
 
     setup = None
