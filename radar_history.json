@@ -202,5 +202,30 @@
       3850144.8265911606
     ],
     "last_updated_ts": 1793399907.848877
+  },
+  "POWRUSDT": {
+    "seen_count": 1,
+    "first_seen_str": "13:03 UTC",
+    "first_price": 0.06337968,
+    "first_rate": -0.01793856,
+    "last_price": 0.06337968,
+    "prev_price": 0.06337968,
+    "last_rate": -0.01793856,
+    "last_cvd": -4323579.387217845,
+    "price_change_radar_pct": 0.0,
+    "price_change_prev_scan_pct": 0.0,
+    "price_history": [
+      0.06337968
+    ],
+    "funding_history": [
+      -0.01793856
+    ],
+    "oi_history": [
+      62534509.0
+    ],
+    "cvd_history": [
+      -4323579.387217845
+    ],
+    "last_updated_ts": 1793538221.692335
   }
 }
