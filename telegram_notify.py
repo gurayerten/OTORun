@@ -1,4 +1,5 @@
 import html
+import re
 import requests
 
 from config import SETTINGS
@@ -88,6 +89,19 @@ def send_telegram(text):
             },
             timeout=10,
         )
+        if r.status_code == 400 and "can't parse entities" in r.text:
+            # Dynamic report text can contain comparison operators (for example,
+            # "< -0.05%") which Telegram mistakes for an HTML tag. Retry as plain
+            # text while removing only the markup tags used by our formatters.
+            plain_text = re.sub(r"</?(?:b|i|u|s|strong|em|code|pre|a)(?:\s+[^>]*)?>", "", text)
+            r = requests.post(
+                url,
+                data={
+                    "chat_id": SETTINGS.TELEGRAM_CHAT_ID,
+                    "text": plain_text,
+                },
+                timeout=10,
+            )
         if r.status_code != 200:
             log.warning(f"[telegram] gönderilemedi: {r.text}")
     except Exception as e:
