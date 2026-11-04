@@ -79,7 +79,8 @@ def _build_report(payload: List[Dict[str, Any]], state: Dict[str, Any], change_e
     metric_names = list(payload[0]["metrics"]) if payload else []
     previous_symbols = state.get("symbols", {})
     previous_averages = state.get("last_averages", {})
-    averages, trends = {}, {}
+    averages, trends, metric_counts = {}, {}, {}
+    long_share_averages = {}
     symbol_changes = {}
     for item in payload:
         previous_metrics = previous_symbols.get(item["symbol"], {}).get("metrics", {})
@@ -91,6 +92,10 @@ def _build_report(payload: List[Dict[str, Any]], state: Dict[str, Any], change_e
     for name in metric_names:
         values = [item["metrics"].get(name) for item in payload if item["metrics"].get(name) is not None]
         averages[name] = sum(values) / len(values) if values else None
+        metric_counts[name] = len(values)
+        if name in ("global_account", "top_account", "top_position"):
+            shares = [100.0 * value / (1.0 + value) for value in values if value >= 0]
+            long_share_averages[name] = sum(shares) / len(shares) if shares else None
         old_value = previous_averages.get(name)
         if averages[name] is None or old_value is None:
             trends[name] = "ilk ölçüm" if averages[name] is not None else "veri yok"
@@ -102,15 +107,23 @@ def _build_report(payload: List[Dict[str, Any]], state: Dict[str, Any], change_e
             trends[name] = "sabit"
 
     divergences = []
-    threshold = float(getattr(SETTINGS, "SENTIMENT_RADAR_DIVERGENCE_THRESHOLD", 0.3))
+    threshold_pp = float(getattr(SETTINGS, "SENTIMENT_RADAR_DIVERGENCE_THRESHOLD", 10.0))
     for item in payload:
         retail = item["metrics"].get("global_account")
         top_position = item["metrics"].get("top_position")
-        if retail is not None and top_position is not None and abs(retail - top_position) >= threshold:
-            divergences.append({"symbol": item["symbol"], "global_account": retail,
-                                "top_position": top_position, "difference": abs(retail - top_position)})
-    divergences.sort(key=lambda item: item["difference"], reverse=True)
+        if retail is not None and top_position is not None:
+            retail_share = 100.0 * retail / (1.0 + retail)
+            position_share = 100.0 * top_position / (1.0 + top_position)
+            difference_pp = abs(retail_share - position_share)
+            if difference_pp >= threshold_pp:
+                divergences.append({"symbol": item["symbol"], "global_account": retail,
+                                    "top_position": top_position,
+                                    "global_account_long_share_pct": retail_share,
+                                    "top_position_long_share_pct": position_share,
+                                    "difference_pp": difference_pp})
+    divergences.sort(key=lambda item: item["difference_pp"], reverse=True)
     return {"watchlist_size": len(payload), "averages": averages, "trends": trends,
+            "metric_counts": metric_counts, "long_share_averages": long_share_averages,
             "symbol_changes": symbol_changes,
             "divergences": divergences, "symbols": payload}
 
@@ -220,16 +233,25 @@ def fmt_sentiment_radar(report: Dict[str, Any]) -> str:
     for name, label in labels.items():
         value = report["averages"].get(name)
         if value is not None:
-            lines.append(f"{label}: {fmt_pct(value, 3)} — {report['trends'].get(name, 'veri yok')}")
+            count = report.get("metric_counts", {}).get(name, report["watchlist_size"])
+            suffix = f" | {count}/{report['watchlist_size']} sembol"
+            share = report.get("long_share_averages", {}).get(name)
+            if share is not None:
+                suffix += f" | ort. long payı %{fmt_pct(share, 1)}"
+            lines.append(f"{label}: {fmt_pct(value, 3)} — {report['trends'].get(name, 'veri yok')}{suffix}")
     top_n = max(1, int(getattr(SETTINGS, "SENTIMENT_RADAR_TOP_N_DIVERGENCE", 5)))
     divergences = report["divergences"][:top_n]
     if divergences:
-        lines.extend(["", "⚡ Ayrışma (Perakende proxy vs Top Trader Position):"])
+        lines.extend(["", "⚡ Long payı farkı (Perakende vs Top Trader Position):"])
         for index, item in enumerate(divergences, 1):
-            retail_side = "long ağırlıklı" if item["global_account"] > 1 else "short ağırlıklı"
-            top_side = "long ağırlıklı" if item["top_position"] > 1 else "short ağırlıklı"
-            lines.append(f"{index}. {item['symbol']}: Perakende {fmt_pct(item['global_account'], 3)} ({retail_side}) vs Top Trader {fmt_pct(item['top_position'], 3)} ({top_side}) — fark: {fmt_pct(item['difference'], 3)}")
-    lines.extend(["", "Not: Her metrik ayrı popülasyon/akış proxy'sidir ve basit, ağırlıksız ortalamadır. Perakende tüm hesapları, Top Trader büyük hesapları ölçer; ayrışma kesin alım/satım sinyali değildir. Taker oranı agresif emir akışını gösterir, doğrudan piyasa yönü değildir. İzlenen Top hacimli sembollerle sınırlıdır."])
+            retail_side = "long" if item["global_account"] > 1 else "short"
+            top_side = "long" if item["top_position"] > 1 else "short"
+            lines.append(
+                f"{index}. {item['symbol']}: Perakende {fmt_pct(item['global_account_long_share_pct'], 1)}% {retail_side} hesap payı "
+                f"(L/S {fmt_pct(item['global_account'], 3)}) vs Top Trader {fmt_pct(item['top_position_long_share_pct'], 1)}% {top_side} pozisyon payı "
+                f"(L/S {fmt_pct(item['top_position'], 3)}) — fark: {fmt_pct(item['difference_pp'], 1)} yüzde puan"
+            )
+    lines.extend(["", "Not: Her metrik ayrı popülasyon/akış proxy'sidir ve basit, ağırlıksız ortalamadır. Long payı farkı yönlerin zıt olduğu anlamına gelmez. Taker oranı agresif emir akışını gösterir, doğrudan piyasa yönü değildir. İzlenen Top hacimli sembollerle sınırlıdır."])
     return "\n".join(lines)
 
 

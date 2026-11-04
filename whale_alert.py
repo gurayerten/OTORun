@@ -1283,13 +1283,12 @@ def fmt_whale_alert(info, rank=None):
     if oi_c_pct is not None:
         c_sign = "+" if oi_c_pct >= 0 else "-"
         c_note = "açık pozisyon artışı" if oi_c_pct > 0 else "açık pozisyon azalışı"
-        notional_part = ""
+        oi_str = f"\n🔍 OI (kontrat miktarı): {c_sign}%{abs(oi_c_pct):.2f} — {c_note} [Gürültü filtresi: ±%{noise:.2f}]"
         if oi_notional:
-            notional_part = f" ≈ {c_sign}{_fmt_usd(abs(oi_notional))}"
-        oi_str = f"\n🔍 OI (kontrat): {c_sign}%{abs(oi_c_pct):.2f}{notional_part} — {c_note} [Gürültü filtresi: ±%{noise:.2f}]"
+            oi_str += f"\n   ↳ Kontrat değişiminin güncel fiyatla notionalı: {c_sign}{_fmt_usd(abs(oi_notional))}"
         if oi_change_usd:
             u_sign = "+" if oi_change_usd >= 0 else "-"
-            oi_str += f"\n   ↳ OI değeri (USD, fiyat etkili): {u_sign}{_fmt_usd(abs(oi_change_usd))}"
+            oi_str += f"\n   ↳ USD bazlı OI notional değişimi (fiyat etkili): {u_sign}{_fmt_usd(abs(oi_change_usd))}"
     elif oi_change_usd:
         u_sign = "+" if oi_change_usd >= 0 else "-"
         oi_str = (

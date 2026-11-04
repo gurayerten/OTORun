@@ -61,9 +61,9 @@ class Settings:
     CONFIRM_WINDOW_BARS: int = 13
 
     # --- ImpulseEngine (Breakout + Volume Spike + BoS Breakout) ---
-    # Geçmiş analizde 333 işlemde -138R üretmişti. Yeni sonuçlar ayrı backtestte
-    # pozitif beklenti göstermeden canlı sinyallere dahil edilmemeli.
-    USE_IMPULSE_ENGINE: bool = False
+    # Geçmiş analizde 333 işlemde -138R üretmüştü; canlı ayarını bilinçli
+    # açıyorsan yeni backtest raporlarını da düzenli takip et.
+    USE_IMPULSE_ENGINE: bool = True
     # Sweep setup kapıları ImpulseEngine'e otomatik uygulanmaz; Impulse için
     # ayrıca kapatılması gereken setup türleri burada belirtilir.
     DISABLED_IMPULSE_SETUP_TYPES: tuple = ()
@@ -156,6 +156,7 @@ class Settings:
     OI_BREADTH_INTERVAL_MIN: int = 30
     OI_BREADTH_WATCHLIST_SIZE: int = 30
     OI_BREADTH_NOISE_PCT: float = 0.03
+    OI_BREADTH_MAX_SNAPSHOT_GAP_MULTIPLIER: float = 2.5
     OI_BREADTH_TOP_N_HIGHLIGHT: int = 5
     OI_BREADTH_MIN_SYMBOLS: int = 10
     OI_BREADTH_SEND_ONLY_ON_CHANGE: bool = True
@@ -172,7 +173,7 @@ class Settings:
     SENTIMENT_RADAR_USE_TOP_ACCOUNT_RATIO: bool = True
     SENTIMENT_RADAR_USE_TOP_POSITION_RATIO: bool = True
     SENTIMENT_RADAR_USE_TAKER_RATIO: bool = True
-    SENTIMENT_RADAR_DIVERGENCE_THRESHOLD: float = 0.3
+    SENTIMENT_RADAR_DIVERGENCE_THRESHOLD: float = 10.0  # long-share farkı, yüzde puan
     SENTIMENT_RADAR_TOP_N_DIVERGENCE: int = 5
     SENTIMENT_RADAR_SEND_ONLY_ON_CHANGE: bool = True
     SENTIMENT_RADAR_CHANGE_EPS: float = 0.05

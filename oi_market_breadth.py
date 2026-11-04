@@ -57,32 +57,45 @@ def _save_oi_breadth_state(state: Dict[str, Any]) -> None:
 def _build_report(payload: List[Dict[str, Any]], state: Dict[str, Any], change_eps: float) -> Dict[str, Any]:
     previous = state.get("symbols", {})
     noise_pct = float(getattr(SETTINGS, "OI_BREADTH_NOISE_PCT", 0.03))
+    interval_min = max(1, int(getattr(SETTINGS, "OI_BREADTH_INTERVAL_MIN", 30)))
+    max_gap_mult = max(1.0, float(getattr(SETTINGS, "OI_BREADTH_MAX_SNAPSHOT_GAP_MULTIPLIER", 2.5)))
+    max_gap_sec = interval_min * 60.0 * max_gap_mult
     rows = []
+    snapshot_gaps_min = []
     for item in payload:
         symbol = item["symbol"]
         old = previous.get(symbol)
         if not isinstance(old, dict) or old.get("oi") is None or old.get("price") is None:
             continue
+        old_ts, current_ts = int(old.get("ts", 0) or 0), int(item.get("ts", 0) or 0)
+        if old_ts > 0 and current_ts > 0:
+            gap_sec = current_ts - old_ts
+            # Uzun veri kesintisinden sonra oluşan büyük değişimi tek normal
+            # tarama aralığıymış gibi breadth hesabına katma.
+            if gap_sec <= 0 or gap_sec > max_gap_sec:
+                continue
+            snapshot_gaps_min.append(gap_sec / 60.0)
         old_oi, old_price = float(old["oi"]), float(old["price"])
         oi_change = ((item["oi"] - old_oi) / old_oi * 100.0) if old_oi else 0.0
         price_change = ((item["price"] - old_price) / old_price * 100.0) if old_price else 0.0
-        if abs(oi_change) < noise_pct:
-            continue
+        significant = abs(oi_change) >= noise_pct
         quadrant = None
-        if price_change > 0:
+        if significant and price_change > 0:
             quadrant = "long_opening" if oi_change > 0 else "short_closing"
-        elif price_change < 0:
+        elif significant and price_change < 0:
             quadrant = "short_opening" if oi_change > 0 else "long_closing"
         rows.append({"symbol": symbol, "oi_change_pct": oi_change,
-                     "price_change_pct": price_change, "quadrant": quadrant})
+                     "price_change_pct": price_change, "quadrant": quadrant,
+                     "significant": significant})
 
-    total = len(rows)
-    rising = sum(1 for row in rows if row["oi_change_pct"] > 0)
-    falling = sum(1 for row in rows if row["oi_change_pct"] < 0)
+    total = len(rows)  # karşılaştırılabilir semboller; yatay OI de paydaya dahildir
+    rising = sum(1 for row in rows if row["significant"] and row["oi_change_pct"] > 0)
+    falling = sum(1 for row in rows if row["significant"] and row["oi_change_pct"] < 0)
+    flat = total - rising - falling
     rising_pct = rising / total * 100.0 if total else 0.0
     previous_report = state.get("last_report", {})
     old_rising_pct = previous_report.get("rising_pct")
-    if old_rising_pct is None:
+    if old_rising_pct is None or previous_report.get("basis") != "all_comparable_symbols":
         direction = "ilk ölçüm"
     elif rising_pct - float(old_rising_pct) > change_eps:
         direction = "genişlik artıyor"
@@ -96,10 +109,13 @@ def _build_report(payload: List[Dict[str, Any]], state: Dict[str, Any], change_e
         "watchlist_size": len(payload), "measured_symbols": total,
         "rising": rising, "falling": falling, "rising_pct": rising_pct,
         "falling_pct": falling / total * 100.0 if total else 0.0,
+        "flat": flat, "changed_symbols": rising + falling,
+        "snapshot_interval_min": (sum(snapshot_gaps_min) / len(snapshot_gaps_min)
+                                  if snapshot_gaps_min else None),
         "direction": direction, "quadrants": quadrants,
-        "top_increases": sorted((row for row in rows if row["oi_change_pct"] > 0),
+        "top_increases": sorted((row for row in rows if row["significant"] and row["oi_change_pct"] > 0),
                                  key=lambda row: row["oi_change_pct"], reverse=True),
-        "top_decreases": sorted((row for row in rows if row["oi_change_pct"] < 0),
+        "top_decreases": sorted((row for row in rows if row["significant"] and row["oi_change_pct"] < 0),
                                  key=lambda row: row["oi_change_pct"]),
     }
 
@@ -164,7 +180,8 @@ def run_oi_breadth_check(state: Optional[Dict[str, Any]] = None) -> Optional[Dic
         log.debug(f"OI breadth state'ten watchlist dışına çıkan {len(old_symbols) - len(new_symbols)} sembol prune edildi")
     first_measurement = not old_symbols
     new_state = {"symbols": new_symbols,
-                 "last_report": {"rising_pct": report["rising_pct"]},
+                 "last_report": {"rising_pct": report["rising_pct"],
+                                 "basis": "all_comparable_symbols"},
                  "updatedAt": int(time.time())}
     with _OI_BREADTH_LOCK:
         _save_oi_breadth_state(new_state)
@@ -175,9 +192,12 @@ def run_oi_breadth_check(state: Optional[Dict[str, Any]] = None) -> Optional[Dic
         log.warning(f"OI breadth karşılaştırılabilir sembol sayısı yetersiz ({report['measured_symbols']}); rapor gönderilmiyor")
         return None
     send_only_change = getattr(SETTINGS, "OI_BREADTH_SEND_ONLY_ON_CHANGE", True)
-    prior_pct = old_state.get("last_report", {}).get("rising_pct")
+    previous_report = old_state.get("last_report", {})
+    prior_pct = previous_report.get("rising_pct")
     has_oi_changes = bool(report["rising"] or report["falling"])
-    breadth_changed = prior_pct is None or abs(report["rising_pct"] - float(prior_pct)) >= change_eps
+    basis_changed = previous_report.get("basis") != "all_comparable_symbols"
+    breadth_changed = (prior_pct is None or basis_changed or
+                       abs(report["rising_pct"] - float(prior_pct)) >= change_eps)
     if send_only_change and not (has_oi_changes and breadth_changed):
         log.info("OI breadth değişimi bildirim eşiğini aşmadı")
         return None
@@ -189,7 +209,10 @@ def fmt_oi_breadth(report: Dict[str, Any]) -> str:
     highlight_n = max(1, int(getattr(SETTINGS, "OI_BREADTH_TOP_N_HIGHLIGHT", 5)))
     q = report["quadrants"]
     lines = [f"⚖️ PİYASA OI GENİŞLİĞİ (Top {report['watchlist_size']} Hacim)", "",
-             f"OI Artan: {report['rising']} sembol (%{fmt_pct(report['rising_pct'], 1)}) | OI Azalan: {report['falling']} sembol (%{fmt_pct(report['falling_pct'], 1)})",
+             f"OI Artan: {report['rising']} (%{fmt_pct(report['rising_pct'], 1)}) | OI Azalan: {report['falling']} (%{fmt_pct(report['falling_pct'], 1)}) | Yatay: {report['flat']}",
+             f"Karşılaştırılabilir: {report['measured_symbols']}/{report['watchlist_size']} sembol" +
+             (f" | Snapshot aralığı ort.: {fmt_pct(report['snapshot_interval_min'], 1)} dk"
+              if report.get("snapshot_interval_min") is not None else ""),
              f"Yön: {report['direction']}", "", "📊 Pozisyon Davranışı (proxy):",
              f"🟢 Long Açılıyor (OI↑ Fiyat↑): {q['long_opening']}",
              f"🔴 Short Açılıyor (OI↑ Fiyat↓): {q['short_opening']}",
