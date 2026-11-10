@@ -239,5 +239,63 @@
       -8123216.595627682
     ],
     "last_updated_ts": 1793549210.383288
+  },
+  "AKEUSDT": {
+    "seen_count": 2,
+    "first_seen_str": "18:32 UTC",
+    "first_price": 0.001932,
+    "first_rate": -0.01601487,
+    "last_price": 0.00232825,
+    "prev_price": 0.001932,
+    "last_rate": -0.01043106,
+    "last_cvd": -1007023.9174984135,
+    "price_change_radar_pct": 20.50983436853003,
+    "price_change_prev_scan_pct": 20.50983436853003,
+    "price_history": [
+      0.001932,
+      0.00232825
+    ],
+    "funding_history": [
+      -0.01601487,
+      -0.01043106
+    ],
+    "oi_history": [
+      4225210069.0,
+      4016036877.0
+    ],
+    "cvd_history": [
+      -26439298.09347956,
+      -1007023.9174984135
+    ],
+    "last_updated_ts": 1793907351.259547
+  },
+  "BNCUSDT": {
+    "seen_count": 2,
+    "first_seen_str": "03:40 UTC",
+    "first_price": 4.806,
+    "first_rate": -0.01138661,
+    "last_price": 4.794,
+    "prev_price": 4.806,
+    "last_rate": -0.01122135,
+    "last_cvd": 540252.9567675474,
+    "price_change_radar_pct": -0.2496878901373378,
+    "price_change_prev_scan_pct": -0.2496878901373378,
+    "price_history": [
+      4.806,
+      4.794
+    ],
+    "funding_history": [
+      -0.01138661,
+      -0.01122135
+    ],
+    "oi_history": [
+      1379691.49,
+      1374247.51
+    ],
+    "cvd_history": [
+      906434.3214187429,
+      540252.9567675474
+    ],
+    "last_updated_ts": 1793940041.599934
   }
 }

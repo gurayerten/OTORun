@@ -55,6 +55,7 @@ simülasyondur; canlı performans garantisi değildir.
 | `oi_market_breadth.py` | Hacme göre sınırlı watchlist OI genişliği |
 | `market_sentiment_radar.py` | Long/short popülasyon oranları ve taker akışı özeti |
 | `crypto_fear_greed.py` | Alternative.me geniş piyasa duyarlılığı (ücretsiz, API anahtarsız) |
+| `coinmarketcap_context.py` | CMC toplam piyasa değeri, 24s spot hacim ve BTC/ETH dominansı; anlamlı değişim uyarısı |
 
 ## Eski versiyona göre eklenen / düzeltilen noktalar
 
@@ -101,13 +102,25 @@ hesaplanıyor. Hacmi/fiyatı sakin ama OI'si sessizce artan bir parite (nadir am
 mümkün bir "sessiz birikim" sinyali) bu yüzden kaçırılabilir. İstersen Aşama 1'e
 OI'yi de (tüm evren için) dahil edebiliriz — bunun bedeli, ekstra ~N API çağrısı.
 
-**CoinMarketCap entegrasyonu istersen**: CMC'nin `/v1/cryptocurrency/
-trending/gainers-losers` veya `listings/latest` endpoint'leri ücretsiz API key
-ile kullanılabilir; piyasa değeri bazlı "trend" sıralaması Binance hacim/OI
-verisinden farklı bir açı sunar. İstersen ayrı bir `cmc_screener.py` ekleyip
-iki kaynağı birleştirebiliriz — şu an default olarak eklemedim çünkü ekstra
-bir API key + rate limit bağımlılığı getiriyor ve Binance-native sinyal zaten
-aynı amaca hizmet ediyor.
+CoinMarketCap verisi şu anda `coinmarketcap_context.py` üzerinden yalnızca
+global spot piyasa bağlamı olarak kullanılıyor. CMC sıralamaları Binance
+vadeli parite evreniyle aynı olmadığı için doğrudan işlem tarayıcısına
+karıştırılmıyor.
+
+### CoinMarketCap global piyasa bağlamı
+
+`.env` dosyasına `CMC_API_KEY` eklenirse bot her 6 saatte bir iki CMC isteği
+yapar: `global-metrics/quotes/latest` ile toplam piyasa değeri, 24 saatlik spot
+hacim ve BTC/ETH dominansını; Basic planda kullanılabilen
+`v3/cryptocurrency/listings/latest` ile de ilk 500 piyasa değerli varlığı alır.
+İkinci veri Binance USDT perpetual sözleşmeleriyle kesiştirilir; CMC sıralaması,
+spot hacmi yüksek hareketliler ilk ölçümde ve yeni/anlamlı değişiklikte Telegram'a
+gönderilir. Bu radar tarama sıralamasını veya işlem kararını değiştirmez. CMC
+API hatasında mevcut Binance taraması etkilenmez. `CMC_ENABLED`,
+`CMC_INTERVAL_MIN`, `CMC_MARKET_CAP_ALERT_PCT`,
+`CMC_BTC_DOMINANCE_ALERT_PCT` ve `CMC_DISCOVERY_*` ayarları `config.py`
+içinden değiştirilebilir. İstekler altı saatte bir sınırlandırılır ve son durum
+diskte tutulur.
 
 ## Bilinen sınırlamalar (genel)
 

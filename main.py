@@ -19,6 +19,10 @@ from exchange_risk_watch import run_risk_watch_check, send_risk_watch, _load_ris
 from oi_market_breadth import run_oi_breadth_check, send_oi_breadth, _load_oi_breadth_state
 from market_sentiment_radar import run_sentiment_radar_check, send_sentiment_radar, _load_sentiment_state
 from crypto_fear_greed import run_fear_greed_check, send_fear_greed, _load_fng_state
+from coinmarketcap_context import (
+    run_cmc_context_check, send_cmc_context,
+    run_cmc_discovery_check, send_cmc_discovery,
+)
 from logger import get_logger
 
 log = get_logger("bot")
@@ -501,6 +505,7 @@ if __name__ == "__main__":
         _last_oi_breadth = 0.0
         _last_sentiment_radar = 0.0
         _last_fear_greed = 0.0
+        _last_cmc_context = 0.0
 
         while not _shutdown_requested:
             start = time.time()
@@ -603,6 +608,21 @@ if __name__ == "__main__":
                         _last_fear_greed = time.time()
                     except Exception as e:
                         log.error(f"❗ Crypto Fear & Greed hatası: {e}")
+
+            # --- CoinMarketCap global spot-market context (single low-frequency call) ---
+            if getattr(SETTINGS, "CMC_ENABLED", True):
+                cmc_interval_sec = max(15, getattr(SETTINGS, "CMC_INTERVAL_MIN", 360)) * 60
+                if time.time() - _last_cmc_context >= cmc_interval_sec:
+                    try:
+                        cmc_report = run_cmc_context_check()
+                        if cmc_report:
+                            send_cmc_context(cmc_report)
+                        discovery_report = run_cmc_discovery_check()
+                        if discovery_report:
+                            send_cmc_discovery(discovery_report)
+                        _last_cmc_context = time.time()
+                    except Exception as e:
+                        log.error(f"❗ CoinMarketCap piyasa özeti hatası: {e}")
 
             wait = max(30, SETTINGS.SCAN_INTERVAL_SECONDS - elapsed)
             log.info(f"⏰ {wait:.0f}s sonra tekrar taranacak (Açık pozisyonlar 1dk aralıkla takip ediliyor)...\n")

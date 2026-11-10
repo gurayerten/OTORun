@@ -187,6 +187,17 @@ class Settings:
     CRYPTO_FNG_ALERT_DELTA: int = 8
     CRYPTO_FNG_FIRST_RUN_NOTIFY: bool = True
 
+    # --- CoinMarketCap global spot-market context ---
+    CMC_ENABLED: bool = True
+    CMC_INTERVAL_MIN: int = 360
+    CMC_REQUEST_TIMEOUT: int = 12
+    CMC_MARKET_CAP_ALERT_PCT: float = 3.0
+    CMC_BTC_DOMINANCE_ALERT_PCT: float = 0.75
+    CMC_DISCOVERY_ENABLED: bool = True
+    CMC_DISCOVERY_LIMIT: int = 500
+    CMC_DISCOVERY_MIN_VOLUME_USD: float = 5_000_000
+    CMC_DISCOVERY_CHANGE_THRESHOLD_PCT: float = 5.0
+
 
     # --- RSI Divergence (opsiyonel skor bileşeni) ---
     USE_RSI_DIVERGENCE: bool = True     # RSI divergence skor bileşeni
