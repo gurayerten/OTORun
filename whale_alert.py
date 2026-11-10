@@ -43,6 +43,7 @@ import math
 import os
 import threading
 import time
+from datetime import datetime
 
 import pandas as pd
 
@@ -252,6 +253,8 @@ def _append_alert_history(info):
         if not path:
             root, _ = os.path.splitext(SETTINGS.WHALE_ALERT_FILE)
             path = root + "_history.jsonl"
+        root, ext = os.path.splitext(path)
+        path = f"{root}_{datetime.now():%Y-%m}{ext or '.jsonl'}"
         rec = {k: v for k, v in info.items() if k != "liq_scenarios"}
         rec["logged_at"] = time.time()
         d = os.path.dirname(path)
@@ -994,6 +997,9 @@ def check_whale_alert(symbol, mark_price_map=None, multi_tf_confirm=True):
             signal_state = "BEARISH_FLOW_ABSORBED" if direction < 0 else "BULLISH_FLOW_ABSORBED"
         elif quality_label == "absorption_weak":
             signal_state = "BEARISH_FLOW_ABSORB_WEAK" if direction < 0 else "BULLISH_FLOW_ABSORB_WEAK"
+    cached_state = _SIGNAL_STATE_CACHE.get(symbol)
+    if cached_state is not None:
+        cached_state["state"] = signal_state
 
     # --- Whale Score ---
     whale_score = _calc_whale_score(

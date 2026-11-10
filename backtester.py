@@ -125,6 +125,11 @@ def _check_bar(position, h, l, c, bars_held, trades, symbol):
                 position["trailing_active"] = True
                 plan.sl = min(plan.sl, position["extreme_price"] + trail_distance)
 
+    # OHLC bars do not reveal the exact intrabar path. Keep an existing stop
+    # first (above), then model favorable TP/trailing activation before a
+    # retrace to the newly ratcheted stop. This matches StateManager live logic.
+    sl_hit = (l <= plan.sl) if d == 1 else (h >= plan.sl)
+
     exit_price = None
     reason = None
     if sl_hit:

@@ -79,12 +79,20 @@ class StateManager:
                 if "type" not in rec:
                     rec["type"] = "trade_signal"
                     migration_needed = True
+                if rec.get("type") == "trade_signal" and "engine" not in rec:
+                    rec["engine"] = "unknown"
+                    migration_needed = True
+            for rec in self.trade_history:
+                if "engine" not in rec:
+                    rec["engine"] = "unknown"
+                    migration_needed = True
             if migration_needed:
                 try:
                     _save(SETTINGS.SIGNAL_LOG_FILE, self.signal_log)
-                    log.info("Signal log migration: added missing type='trade_signal' to legacy records")
+                    _save(SETTINGS.TRADE_HISTORY_FILE, self.trade_history)
+                    log.info("Trade and signal history migration completed")
                 except Exception as e:
-                    log.warning(f"Signal log migration failed: {e}")
+                    log.warning(f"Trade/signal history migration failed: {e}")
             self.stats: dict = _load(
                 SETTINGS.STATS_FILE,
                 {
@@ -92,12 +100,14 @@ class StateManager:
                     "wins": 0,
                     "losses": 0,
                     "breakevens": 0,
+                    "expired": 0,
                     "total_r_multiple": 0.0,
                 },
             )
             # Eğer geçmiş varsa ama stats dosyası yoksa otomatik yeniden hesapla
-            if self.trade_history and self.stats.get("total_trades", 0) == 0:
+            if self.trade_history and (self.stats.get("total_trades", 0) == 0 or "expired" not in self.stats):
                 self._recalculate_stats()
+                _save(SETTINGS.STATS_FILE, self.stats)
             # (Analiz) total_r_realized, total_r_multiple ile birebir aynı
             # değerle güncelleniyordu (ayrı bir metrik değildi) → kaldırıldı.
             # Eski stats.json dosyalarındaki kalıntı anahtar temizlenir.
@@ -111,15 +121,22 @@ class StateManager:
             log.info(
                 f"🏆 Geçmiş Performans: {st['total_trades']} İşlem │ "
                 f"{st['wins']} WIN ({wr:.1f}%) │ {st['losses']} LOSS │ {st['breakevens']} BE │ "
+                f"{st.get('expired', 0)} EXPIRED │ "
                 f"Toplam: {st['total_r_multiple']:+.2f}R"
             )
 
     def _recalculate_stats(self):
         """Geçmiş işlem listesinden genel performans istatistiklerini hesaplar."""
         total = len(self.trade_history)
-        wins = sum(1 for t in self.trade_history if t.get("outcome") == "WIN" or t.get("win", False))
-        be = sum(1 for t in self.trade_history if t.get("outcome") == "BREAKEVEN" or t.get("reason") == "BE")
-        losses = sum(1 for t in self.trade_history if t.get("outcome") == "LOSS" or (not t.get("win", False) and t.get("reason") != "BE"))
+        wins = sum(1 for t in self.trade_history
+                   if t.get("outcome") == "WIN" or ("outcome" not in t and t.get("win", False)))
+        be = sum(1 for t in self.trade_history
+                 if t.get("outcome") == "BREAKEVEN" or ("outcome" not in t and t.get("reason") == "BE"))
+        losses = sum(1 for t in self.trade_history
+                     if t.get("outcome") == "LOSS"
+                     or ("outcome" not in t and not t.get("win", False)
+                         and t.get("reason") not in ("BE", "EXPIRED")))
+        expired = sum(1 for t in self.trade_history if t.get("reason") == "EXPIRED" or t.get("outcome") == "EXPIRED")
         total_r = sum(float(t.get("r_multiple", 0.0)) for t in self.trade_history)
 
         self.stats = {
@@ -127,6 +144,7 @@ class StateManager:
             "wins": wins,
             "losses": losses,
             "breakevens": be,
+            "expired": expired,
             "total_r_multiple": round(total_r, 2),
         }
 
@@ -356,6 +374,10 @@ class StateManager:
                             if new_sl < pos["sl"]:
                                 pos["sl"] = new_sl
 
+            # Use a deterministic OHLC convention: an old stop hit wins over
+            # same-bar targets; after TP/trailing ratchets the new stop can be hit.
+            sl_hit = (low <= pos["sl"]) if d == 1 else (high >= pos["sl"])
+
             # --- Pozisyon Kapanış Kontrolü (SL / TP3 / Time-Stop) ---
             exit_price = None
             reason = None
@@ -407,6 +429,7 @@ class StateManager:
                     "score": pos.get("score", 0),
                     "setup_type": pos.get("setup_type", "Liq Sweep"),
                     "grade": pos.get("grade", "B"),
+                    "engine": pos.get("engine", "sweep"),
                     "market_regime": pos.get("market_regime", "TRANSITION"),
                     "opened_at": pos.get("opened_at", ""),
                     "closed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

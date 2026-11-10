@@ -174,12 +174,15 @@ def process_symbol(symbol, stats: ScanStats, mark_price_map=None):
     setup = None
     engine_used = "sweep"
     if sweep_setup and impulse_setup:
-        setup = sweep_setup
-        engine_used = "sweep"
+        if impulse_setup.score >= sweep_setup.score + 10.0:
+            setup = impulse_setup
+            engine_used = "impulse"
+        else:
+            setup = sweep_setup
+            engine_used = "sweep"
         log.debug(
             f"{symbol} Çift motor: Sweep(sweep)={sweep_setup.score:.0f} vs "
-            f"Impulse(impulse)={impulse_setup.score:.0f} → SweepEngine seçildi "
-            f"(risk-veteli motor, engine={engine_used})"
+            f"Impulse(impulse)={impulse_setup.score:.0f} → {engine_used} seçildi"
         )
     elif sweep_setup:
         setup = sweep_setup
@@ -200,9 +203,11 @@ def process_symbol(symbol, stats: ScanStats, mark_price_map=None):
     # (Analiz) Güvenlik ağı: _mk() içindeki kesintiler (örn. WTD cezası) skoru
     # MIN_SWEEP_SCORE'un altına düşürebilir. Bu kontrol OB bloğunun içindeydi;
     # orderbook kapalıyken / None dönerken / hata fırlatırken atlanıyordu.
-    if setup.score < SETTINGS.MIN_SWEEP_SCORE:
-        log.debug(f"{symbol} skor MIN_SWEEP_SCORE altında ({setup.score:.0f} < "
-                  f"{SETTINGS.MIN_SWEEP_SCORE:.0f}) → aday düşürüldü")
+    min_score = (SETTINGS.MIN_IMPULSE_SCORE if setup.engine == "impulse"
+                 else SETTINGS.MIN_SWEEP_SCORE)
+    if setup.score < min_score:
+        log.debug(f"{symbol} {setup.engine} skoru eşik altında ({setup.score:.0f} < "
+                  f"{min_score:.0f}) → aday düşürüldü")
         return
 
     # --- #6 Orderbook Imbalance Kademeli Analizi (Anti-Spoofing) ---
@@ -259,8 +264,8 @@ def process_symbol(symbol, stats: ScanStats, mark_price_map=None):
                     f"skor_etki={tiered_score:+.1f}"
                 )
                 
-                if setup.score < SETTINGS.MIN_SWEEP_SCORE:
-                    log.debug(f"{symbol} L2 Orderbook zayıf (Oran: {capped_ratio:.2f}, Etki: {tiered_score:+.1f}). İşlem iptal edildi.")
+                if setup.score < min_score:
+                    log.debug(f"{symbol} L2 Orderbook sonrası skor eşik altında ({setup.score:.0f} < {min_score:.0f}). İşlem iptal edildi.")
                     return
         except Exception as e:
             log.debug(f"Orderbook analiz hatası: {symbol} — {e}")

@@ -110,7 +110,7 @@ class Settings:
     FUNDING_EXTREME_THRESHOLD: float = 0.005   # ±%0.5 aşırı funding
     FUNDING_HIGH_THRESHOLD: float = 0.002      # ±%0.2 yüksek funding
     FUNDING_HISTORY_LIMIT: int = 21            # Funding history bar sayısı (8s aralıklı)
-    USE_LIQUIDATION_DATA: bool = False  # forceOrders USER_DATA imza altyapısı eklenene kadar kapalı
+    USE_LIQUIDATION_DATA: bool = False  # forceOrders kullanıcıya özel imza gerektirir; yalnızca ilgili kapalı özellikte kullanılır
 
     # --- Funding Rate Squeeze Radarı ---
     USE_FUNDING_RADAR: bool = True

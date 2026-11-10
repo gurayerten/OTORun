@@ -544,7 +544,7 @@ def get_daily_klines(symbol, days):
 
 def get_klines_paginated(symbol, interval, days):
     """Backtest için 1500 bar limitinin ötesine sayfalama ile gider."""
-    bars_per_day = {"15m": 96, "1h": 24, "4h": 6}.get(interval, 96)
+    bars_per_day = {"5m": 288, "15m": 96, "30m": 48, "1h": 24, "4h": 6}.get(interval, 96)
     needed = days * bars_per_day
     out = []
     end_time = None
@@ -648,7 +648,9 @@ def analyze_funding_squeeze(symbol):
 
 
 def get_liquidation_data(symbol, limit=50):
-    """Binance forceOrders API'den gerçek likidasyon verilerini çeker.
+    """Kullanıcıya ait forceOrders verisini (uygun kimlik doğrulamayla) çeker.
+
+    Bu endpoint piyasa geneli likidasyon akışı değildir; kapalı özellik içindir.
     Long/short likidasyon dengesizliği ve yoğun likidasyon cluster'larını döner."""
     result = {
         "long_liq_usd": 0.0,

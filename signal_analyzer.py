@@ -84,12 +84,14 @@ def analyze_by_dimension(trades, key_fn, label):
         wins = sum(1 for t in group if t.get("outcome") == "WIN")
         losses = sum(1 for t in group if t.get("outcome") == "LOSS")
         be = sum(1 for t in group if t.get("outcome") == "BREAKEVEN")
+        expired = sum(1 for t in group if t.get("outcome") == "EXPIRED" or t.get("reason") == "EXPIRED")
         total_r = sum(float(t.get("r_multiple", 0.0)) for t in group)
         decisive = wins + losses
         wr = _pct(wins, decisive)
         results.append({
             "key": k, "total": total, "wins": wins, "losses": losses,
             "breakevens": be, "win_rate": round(wr, 1),
+            "expired": expired,
             "total_r": round(total_r, 1),
             "avg_r": round(total_r / total, 2) if total > 0 else 0.0,
         })
@@ -395,18 +397,29 @@ def reconstruct_and_evaluate_alerted(alerted_file, max_symbols=None, delay=0.15,
 
         # Uygun setup seçimi
         setup = None
-        if se_setups and se_setups[-1].bar_index == len(sub_df) - 1:
-            setup = se_setups[-1]
-        elif ie_setups and ie_setups[-1].bar_index == len(sub_df) - 1:
-            setup = ie_setups[-1]
+        setup_engine = "unknown"
+        se_current = se_setups[-1] if se_setups and se_setups[-1].bar_index == len(sub_df) - 1 else None
+        ie_current = ie_setups[-1] if ie_setups and ie_setups[-1].bar_index == len(sub_df) - 1 else None
+        if se_current and ie_current:
+            if ie_current.score >= se_current.score + 10.0:
+                setup, setup_engine = ie_current, "impulse"
+            else:
+                setup, setup_engine = se_current, "sweep"
+        elif se_current:
+            setup, setup_engine = se_current, "sweep"
+        elif ie_current:
+            setup, setup_engine = ie_current, "impulse"
         elif se_setups:
             setup = se_setups[-1]
+            setup_engine = "sweep"
         elif ie_setups:
             setup = ie_setups[-1]
+            setup_engine = "impulse"
 
         if not setup:
             log.debug(f"  [{idx+1}/{total}] {symbol}: Reconstructed setup bulunamadı")
             continue
+        setup.engine = setup_engine
 
         entry = sub_df["close"].iloc[-1]
         atr_v = atr(sub_df, SETTINGS.ATR_LEN).values[-1]
@@ -448,6 +461,10 @@ def reconstruct_and_evaluate_alerted(alerted_file, max_symbols=None, delay=0.15,
             if tp3_hit and not pos["tp3_reached"] and not sl_hit:
                 pos["tp3_reached"] = True
 
+            # Initial stop remains first priority; after TP moves it, check the
+            # updated level too so same-bar BE exits are not silently missed.
+            sl_hit = (low <= pos["sl"]) if d == 1 else (high >= pos["sl"])
+
             if sl_hit or pos["tp3_reached"]:
                 win = pos["tp1_reached"]
                 reason = "TP3" if pos["tp3_reached"] else ("BE" if pos["be_active"] else "SL")
@@ -470,6 +487,7 @@ def reconstruct_and_evaluate_alerted(alerted_file, max_symbols=None, delay=0.15,
             "entry": plan.entry,
             "close_price": pos["tp3"] if pos["tp3_reached"] else pos["sl"],
             "score": round(setup.score, 2),
+            "engine": setup_engine,
             "setup_type": setup.setup_type,
             "grade": getattr(setup, "grade", "B"),
             "market_regime": setup.market_regime,
@@ -511,6 +529,7 @@ def reconstruct_and_evaluate_alerted(alerted_file, max_symbols=None, delay=0.15,
                 "tp3": plan.tp3,
                 "logged_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "indicators": indicators,
+                "engine": setup_engine,
             }
             signal_log.append(sig_record)
             log_map[(symbol, bar_time_str)] = sig_record
@@ -620,6 +639,8 @@ def deep_scan_historical(days=30, chunk_days=7, max_symbols=50, delay=0.15, forc
                         if tp3_hit and not pos["tp3_reached"] and not sl_hit:
                             pos["tp3_reached"] = True
 
+                        sl_hit = (low <= pos["sl"]) if d == 1 else (high >= pos["sl"])
+
                         if sl_hit or pos["tp3_reached"]:
                             win = pos["tp1_reached"]
                             reason = "TP3" if pos["tp3_reached"] else ("BE" if pos["be_active"] else "SL")
@@ -635,7 +656,7 @@ def deep_scan_historical(days=30, chunk_days=7, max_symbols=50, delay=0.15, forc
                     trade_record = {
                         "symbol": symbol, "direction": "LONG" if setup.direction == 1 else "SHORT",
                         "entry": plan.entry, "close_price": pos["tp3"] if pos["tp3_reached"] else pos["sl"],
-                        "score": round(setup.score, 2), "setup_type": setup.setup_type,
+                        "score": round(setup.score, 2), "engine": "sweep", "setup_type": setup.setup_type,
                         "grade": getattr(setup, "grade", "B"), "market_regime": setup.market_regime,
                         "opened_at": bar_time_str, "closed_at": closed_at_str,
                         "reason": reason, "outcome": outcome, "win": (outcome == "WIN"),
@@ -649,6 +670,7 @@ def deep_scan_historical(days=30, chunk_days=7, max_symbols=50, delay=0.15, forc
                     if (symbol, bar_time_str) not in log_map:
                         sig_record = {
                             "symbol": symbol, "bar_time": bar_time_str,
+                            "engine": "sweep",
                             "direction": "LONG" if setup.direction == 1 else "SHORT",
                             "setup_type": setup.setup_type, "score": round(setup.score, 2),
                             "grade": getattr(setup, "grade", "B"), "market_regime": setup.market_regime,
@@ -695,6 +717,7 @@ def generate_report(trades, signal_log=None, forward_returns=None):
     wins = sum(1 for t in trades if t.get("outcome") == "WIN")
     losses = sum(1 for t in trades if t.get("outcome") == "LOSS")
     be = sum(1 for t in trades if t.get("outcome") == "BREAKEVEN")
+    expired = sum(1 for t in trades if t.get("outcome") == "EXPIRED" or t.get("reason") == "EXPIRED")
     total_r = sum(float(t.get("r_multiple", 0.0)) for t in trades)
     decisive = wins + losses
 
@@ -706,6 +729,7 @@ def generate_report(trades, signal_log=None, forward_returns=None):
     lines.append(f"| WIN | {wins} ({_pct(wins, len(trades)):.1f}%) |")
     lines.append(f"| LOSS | {losses} ({_pct(losses, len(trades)):.1f}%) |")
     lines.append(f"| BREAKEVEN | {be} ({_pct(be, len(trades)):.1f}%) |")
+    lines.append(f"| EXPIRED | {expired} ({_pct(expired, len(trades)):.1f}%) |")
     lines.append(f"| Win Rate (Kesin) | {_pct(wins, decisive):.1f}% ({decisive} işlem) |")
     lines.append(f"| Toplam R | {total_r:+.1f}R |")
     lines.append(f"| Ortalama R | {total_r / len(trades):+.2f}R |" if trades else "")
@@ -713,6 +737,7 @@ def generate_report(trades, signal_log=None, forward_returns=None):
 
     # ── Boyut Bazlı Analizler ──
     dimensions = [
+        analyze_by_dimension(trades, lambda t: t.get("engine", "unknown"), "Engine"),
         analyze_by_dimension(trades, lambda t: t.get("setup_type", "?"), "Setup Type"),
         analyze_by_dimension(trades, lambda t: t.get("direction", "?"), "Yön (Direction)"),
         analyze_by_dimension(trades, lambda t: score_range(t.get("score", 0)), "Skor Aralığı"),
@@ -723,12 +748,12 @@ def generate_report(trades, signal_log=None, forward_returns=None):
     for dim_label, dim_results in dimensions:
         lines.append(f"## {dim_label} Bazında Performans")
         lines.append("")
-        lines.append(f"| {dim_label} | İşlem | WIN | LOSS | BE | Win Rate | R | Ort. R |")
-        lines.append("|" + "---|" * 8)
+        lines.append(f"| {dim_label} | İşlem | WIN | LOSS | BE | EXPIRED | Win Rate | R | Ort. R |")
+        lines.append("|" + "---|" * 9)
         for r in dim_results:
             lines.append(
                 f"| {r['key']} | {r['total']} | {r['wins']} | {r['losses']} | "
-                f"{r['breakevens']} | {r['win_rate']}% | {r['total_r']:+.1f} | {r['avg_r']:+.2f} |"
+                f"{r['breakevens']} | {r['expired']} | {r['win_rate']}% | {r['total_r']:+.1f} | {r['avg_r']:+.2f} |"
             )
         lines.append("")
 

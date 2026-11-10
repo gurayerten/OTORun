@@ -155,7 +155,7 @@ def compute_supertrend(df, period=10, multiplier=3.0, change_atr=True):
     prev_close = np.roll(close, 1); prev_close[0] = close[0]
     tr = np.maximum(high - low, np.maximum(np.abs(high - prev_close), np.abs(low - prev_close)))
     atr_vals = (pd.Series(tr).ewm(alpha=1/period, adjust=False).mean().values.copy() if change_atr
-                else pd.Series(tr).rolling(window=period).mean().fillna(method="bfill").values.copy())
+                else pd.Series(tr).rolling(window=period).mean().bfill().values.copy())
     up = np.zeros(n); dn = np.zeros(n); trend = np.ones(n, dtype=int)
     up[0] = src[0] - multiplier * atr_vals[0]; dn[0] = src[0] + multiplier * atr_vals[0]
     for i in range(1, n):
@@ -1603,7 +1603,9 @@ class SweepEngine:
                 if SETTINGS.USE_PMAX_SCORE_BONUS and SETTINGS.USE_PMAX and pmxd[i] == d:
                     _conf += SETTINGS.PMAX_SCORE_BONUS
 
-                # --- #14 Setup Type Sınıflandırması ---
+                # Setup type is finalized after scoring because it depends on
+                # confluence fields assembled here; disabled types are rejected
+                # immediately below in _mk (a deliberate post-score filter).
                 _stype = "Liq Sweep"
                 _all_trend = (cst == d and (not SETTINGS.USE_PMAX or pmxd[i] == d)
                               and (not SETTINGS.USE_HTF_FILTER or self.htf_bias == 0 or self.htf_bias == d))
